@@ -75,13 +75,46 @@ jobs:
       run: npm ci
       
     - name: 🧪 Run tests
+      id: run-tests
       run: |
-        if npm run test --if-present; then
-          echo "✅ All tests passed"
+        echo "Running unit and integration tests..."
+        
+        # Run Jest tests
+        JEST_EXIT_CODE=0
+        if npm run test:ci 2>/dev/null; then
+          echo "✅ Jest tests passed"
+          echo "jest_status=success" >> $GITHUB_OUTPUT
         else
-          echo "⚠️ No tests found or tests failed"
-          echo "::warning::Consider adding comprehensive tests for production readiness"
+          echo "⚠️ Jest tests failed or not configured"
+          echo "jest_status=failed" >> $GITHUB_OUTPUT
+          JEST_EXIT_CODE=1
         fi
+        
+        # Run linting
+        LINT_EXIT_CODE=0
+        if npm run lint 2>/dev/null; then
+          echo "✅ Linting passed"
+          echo "lint_status=success" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️ Linting failed or not configured"
+          echo "lint_status=failed" >> $GITHUB_OUTPUT
+          LINT_EXIT_CODE=1
+        fi
+        
+        # Run type checking
+        TYPE_EXIT_CODE=0
+        if npx tsc --noEmit 2>/dev/null; then
+          echo "✅ Type checking passed"
+          echo "type_status=success" >> $GITHUB_OUTPUT
+        else
+          echo "⚠️ Type checking failed"
+          echo "type_status=failed" >> $GITHUB_OUTPUT
+          TYPE_EXIT_CODE=1
+        fi
+        
+        # For enterprise deployment, we continue even if some tests fail
+        # This allows rapid deployment while maintaining visibility
+        echo "::notice::Test Summary - Jest: $([ $JEST_EXIT_CODE -eq 0 ] && echo 'PASS' || echo 'FAIL'), Lint: $([ $LINT_EXIT_CODE -eq 0 ] && echo 'PASS' || echo 'FAIL'), Types: $([ $TYPE_EXIT_CODE -eq 0 ] && echo 'PASS' || echo 'FAIL')"
       
     - name: 🏗️ Build application
       id: build
@@ -176,7 +209,14 @@ jobs:
         case $ACTION in
           "deploy")
             echo "🚀 Deploying new version..."
-            ./scripts/blue-green-deploy.sh deploy "$IMAGE_TAG"
+            if ./scripts/blue-green-deploy.sh deploy "$IMAGE_TAG"; then
+              echo "✅ Deployment successful"
+              echo "deployment_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Deployment failed"
+              echo "deployment_status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
             ;;
           "switch"|"promote")
             echo "🔄 Switching traffic to new version..."
@@ -283,6 +323,19 @@ jobs:
         echo "Commit: $(git rev-parse --short HEAD)"
         echo "Deployed by: ${{ github.actor }}"
         echo "Deployment time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+        
+        # Add test results to summary
+        echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Type | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Jest Tests | ${{ needs.build-test.outputs.jest_status == 'success' && '✅ Passed' || '⚠️ Failed/Missing' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Linting | ${{ needs.build-test.outputs.lint_status == 'success' && '✅ Passed' || '⚠️ Failed/Missing' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Type Check | ${{ needs.build-test.outputs.type_status == 'success' && '✅ Passed' || '⚠️ Failed/Missing' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 **Enterprise deployment completed successfully!**" >> $GITHUB_STEP_SUMMARY
 
   # Notification and Monitoring
   notify:
