@@ -48,6 +48,43 @@ get_active_slot() {
     kubectl get configmap "$RELEASE_NAME-config" -n "$NAMESPACE" -o jsonpath='{.data.ACTIVE_SLOT}' 2>/dev/null || echo "blue"
 }
 
+# Store deployment history for rollback
+store_deployment_history() {
+    local slot=$1
+    local image_tag=$2
+    local timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+    
+    # Create or update deployment history configmap
+    kubectl create configmap "$RELEASE_NAME-history" -n "$NAMESPACE" \
+        --from-literal="previous_slot=$(get_inactive_slot)" \
+        --from-literal="previous_image=$(get_slot_image $(get_inactive_slot))" \
+        --from-literal="current_slot=$slot" \
+        --from-literal="current_image=$image_tag" \
+        --from-literal="deployment_time=$timestamp" \
+        --from-literal="deployed_by=${USER:-system}" \
+        --dry-run=client -o yaml | kubectl apply -f -
+}
+
+# Get deployment history
+get_deployment_history() {
+    echo "=== Deployment History ==="
+    if kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" > /dev/null 2>&1; then
+        echo "Current deployment:"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.current_slot}' | xargs -I {} echo "  Slot: {}"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.current_image}' | xargs -I {} echo "  Image: {}"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.deployment_time}' | xargs -I {} echo "  Time: {}"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.deployed_by}' | xargs -I {} echo "  By: {}"
+        
+        echo ""
+        echo "Previous deployment:"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.previous_slot}' | xargs -I {} echo "  Slot: {}"
+        kubectl get configmap "$RELEASE_NAME-history" -n "$NAMESPACE" -o jsonpath='{.data.previous_image}' | xargs -I {} echo "  Image: {}"
+    else
+        echo "No deployment history found"
+    fi
+    echo ""
+}
+
 # Get inactive slot
 get_inactive_slot() {
     local active_slot=$(get_active_slot)
