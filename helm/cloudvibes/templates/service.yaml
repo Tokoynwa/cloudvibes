@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudvibes.fullname" . }}
+  labels:
+    {{- include "cloudvibes.labels" . | nindent 4 }}
+    service.type: production
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cloudvibes.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/slot: {{ include "cloudvibes.activeSlot" . }}
+
+---
+{{- if .Values.service.preview.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudvibes.fullname" . }}-preview
+  labels:
+    {{- include "cloudvibes.labels" . | nindent 4 }}
+    service.type: preview
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.preview.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cloudvibes.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/slot: {{ include "cloudvibes.inactiveSlot" . }}
+{{- end }}
+
+---
+# Blue slot service (always available for testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudvibes.fullname" . }}-blue
+  labels:
+    {{- include "cloudvibes.labels" . | nindent 4 }}
+    service.type: slot
+    app.kubernetes.io/slot: blue
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cloudvibes.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/slot: blue
+
+---
+# Green slot service (always available for testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cloudvibes.fullname" . }}-green
+  labels:
+    {{- include "cloudvibes.labels" . | nindent 4 }}
+    service.type: slot
+    app.kubernetes.io/slot: green
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cloudvibes.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/slot: green

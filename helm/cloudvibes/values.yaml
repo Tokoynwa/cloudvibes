@@ -1,0 +1,124 @@
+# CloudVibes Helm Values - Blue-Green Deployment Configuration
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Application configuration
+app:
+  name: cloudvibes
+  version: "1.0.0"
+
+# Blue-Green deployment configuration
+blueGreen:
+  enabled: true
+  # Current active slot: blue or green
+  activeSlot: blue
+  # Strategy for switching traffic
+  strategy:
+    # Automatic switch after health checks pass
+    autoPromote: false
+    # Time to wait before auto-promotion (if enabled)
+    autoPromoteDelaySeconds: 300
+    # Health check configuration
+    healthCheck:
+      enabled: true
+      path: /api/health
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      successThreshold: 3
+      failureThreshold: 3
+
+# Image configuration
+image:
+  repository: cloudvibes
+  tag: latest
+  pullPolicy: Never  # For Minikube development
+  # pullPolicy: Always  # For production
+
+# Service configuration
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+  # Additional service for preview (green environment)
+  preview:
+    enabled: true
+    port: 8080
+
+# Ingress configuration (optional)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: cloudvibes.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource configuration
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Replica configuration
+replicaCount: 3
+
+# Environment variables
+env:
+  NODE_ENV: "production"
+  NEXT_PUBLIC_OPENWEATHER_API_KEY: "your_openweathermap_api_key_here"
+  NEXT_PUBLIC_OPEN_METEO_BASE_URL: "https://api.open-meteo.com/v1"
+  NEXT_PUBLIC_APP_URL: "https://cloudvibes.org"
+  NEXT_PUBLIC_APP_NAME: "CloudVibes"
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+
+# Node selector and affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Autoscaling configuration (optional)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Monitoring and observability
+monitoring:
+  serviceMonitor:
+    enabled: false
+  podMonitor:
+    enabled: false
+
+# Blue-Green specific configurations
+slots:
+  blue:
+    enabled: true
+    image:
+      tag: "blue"
+    replicas: 3
+  green:
+    enabled: false
+    image:
+      tag: "green"
+    replicas: 3

@@ -1,0 +1,79 @@
+{{- if .Values.slots.blue.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cloudvibes.fullname" . }}-blue
+  labels:
+    {{- include "cloudvibes.labels" . | nindent 4 }}
+    app.kubernetes.io/slot: blue
+spec:
+  replicas: {{ .Values.slots.blue.replicas | default .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "cloudvibes.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/slot: blue
+  template:
+    metadata:
+      labels:
+        {{- include "cloudvibes.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/slot: blue
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.slots.blue.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            {{- include "cloudvibes.env" . | nindent 12 }}
+            - name: DEPLOYMENT_SLOT
+              value: "blue"
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.blueGreen.healthCheck.path | default "/api/health" }}
+              port: http
+            initialDelaySeconds: {{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.blueGreen.healthCheck.path | default "/api/health" }}
+              port: http
+            initialDelaySeconds: {{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}
+            successThreshold: {{ .Values.blueGreen.healthCheck.successThreshold | default 1 }}
+            failureThreshold: {{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
