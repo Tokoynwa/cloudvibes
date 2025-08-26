@@ -27,6 +27,19 @@ A modern, responsive weather application built with Next.js 15, TypeScript, and 
 - **Weather Widgets** - Embeddable weather widgets
 - **Historical Data** - Weather trends and historical comparisons
 
+## 🛠️ Tech Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Frontend** | Next.js 15, React 18, TypeScript |
+| **Styling** | Tailwind CSS, Framer Motion |
+| **State Management** | Zustand, React Query |
+| **APIs** | OpenWeatherMap, Open-Meteo |
+| **Build Tools** | Turbopack, ESLint, PostCSS |
+| **Deployment** | Docker, Kubernetes, Vercel |
+| **Monetization** | Google AdSense |
+| **Compliance** | Privacy Policy, COPPA |
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -188,15 +201,29 @@ npm run build
 ```
 
 **Docker:**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
+```bash
+# Build the Docker image
+docker build -t cloudvibes:latest .
+
+# Run the container
+docker run -p 3000:3000 cloudvibes:latest
+```
+
+**Kubernetes (with Minikube):**
+```bash
+# Start Minikube
+minikube start --driver=docker
+
+# Build image in Minikube context
+minikube docker-env
+eval $(minikube -p minikube docker-env)
+docker build -t cloudvibes:latest .
+
+# Deploy to Kubernetes
+kubectl apply -f k8s/deployment.yaml
+
+# Get service URL
+minikube service cloudvibes-service --url
 ```
 
 ## 🎨 Customization
@@ -215,6 +242,33 @@ CMD ["npm", "start"]
 - Follow the existing component structure
 - Use TypeScript for type safety
 - Implement responsive design with Tailwind
+
+## 💰 Monetization
+
+### Google AdSense Integration
+The app is configured with Google AdSense for monetization:
+
+1. **AdSense Script** - Automatically loaded in the app layout
+2. **Privacy Policy** - Required by Google Publisher Policies at `/privacy`
+3. **Footer Compliance** - Includes required privacy and data usage links
+4. **COPPA Compliance** - Children's privacy protection implemented
+
+**AdSense Configuration:**
+- Client ID: `ca-pub-1091636822057337` (configured in layout)
+- Privacy policy accessible at `/privacy` route
+- Compliant with Google Publisher Policies
+- Ready for ad placement once AdSense approval is received
+
+**Adding Ad Units:**
+```jsx
+// Example ad unit placement
+<ins className="adsbygoogle"
+     style={{display: 'block'}}
+     data-ad-client="ca-pub-1091636822057337"
+     data-ad-slot="your-ad-slot-id"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+```
 
 ## 📱 Browser Support
 
