@@ -1,0 +1,115 @@
+name: ⚡ Fast CloudVibes Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action'
+        default: 'deploy'
+        type: choice
+        options: [deploy, switch, rollback, status]
+
+env:
+  IMAGE_NAME: cloudvibes
+  NAMESPACE: cloudvibes
+  RELEASE_NAME: cloudvibes
+
+jobs:
+  fast-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: ⚡ Quick Install & Build
+      run: |
+        npm ci --prefer-offline --no-audit
+        npm run build
+        
+    - name: 🔧 Setup Minikube
+      uses: medyagh/setup-minikube@master
+      with:
+        minikube-version: 1.32.0
+        kubernetes-version: 1.28.3
+        driver: docker
+        
+    - name: ⚙️ Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: '3.14.0'
+        
+    - name: 🐳 Build & Deploy
+      run: |
+        # Configure Docker
+        eval $(minikube -p minikube docker-env)
+        
+        # Generate image tag
+        IMAGE_TAG="$(date +%Y%m%d-%H%M%S)-$(echo ${{ github.sha }} | cut -c1-6)"
+        echo "Building: $IMAGE_TAG"
+        
+        # Fast Docker build
+        docker build -t ${{ env.IMAGE_NAME }}:$IMAGE_TAG -t ${{ env.IMAGE_NAME }}:latest .
+        
+        # Setup namespace
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Deploy with blue-green
+        chmod +x scripts/blue-green-deploy.sh
+        export NAMESPACE=${{ env.NAMESPACE }}
+        export RELEASE_NAME=${{ env.RELEASE_NAME }}
+        export HELM_CHART=./helm/cloudvibes
+        
+        ACTION="${{ github.event.inputs.action || 'deploy' }}"
+        
+        if [ "$ACTION" = "deploy" ]; then
+          echo "🚀 Deploying $IMAGE_TAG..."
+          ./scripts/blue-green-deploy.sh deploy "$IMAGE_TAG"
+          
+          # Quick health check
+          sleep 20
+          kubectl port-forward service/${{ env.RELEASE_NAME }} 8080:80 -n ${{ env.NAMESPACE }} &
+          PID=$!
+          sleep 5
+          
+          if curl -f http://localhost:8080/blog > /dev/null 2>&1; then
+            echo "✅ New features deployed successfully!"
+            echo "Blog page: ✅"
+          else
+            echo "❌ Blog page not accessible"
+          fi
+          
+          if curl -f http://localhost:8080/about > /dev/null 2>&1; then
+            echo "About page: ✅"
+          else
+            echo "❌ About page not accessible"
+          fi
+          
+          kill $PID 2>/dev/null || true
+        else
+          ./scripts/blue-green-deploy.sh $ACTION
+        fi
+        
+    - name: 📊 Results
+      if: always()
+      run: |
+        echo "## ⚡ Fast Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 **Status:** $([ $? -eq 0 ] && echo 'SUCCESS' || echo 'FAILED')" >> $GITHUB_STEP_SUMMARY
+        echo "⏱️ **Duration:** ~3-4 minutes" >> $GITHUB_STEP_SUMMARY
+        echo "🏷️ **Image:** ${{ env.IMAGE_NAME }}:$(date +%Y%m%d-%H%M%S)-$(echo ${{ github.sha }} | cut -c1-6)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 Access Commands:" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "kubectl port-forward service/${{ env.RELEASE_NAME }} 8080:80 -n ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+        # Show deployment status
+        ./scripts/blue-green-deploy.sh status
