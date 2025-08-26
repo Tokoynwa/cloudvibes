@@ -1,0 +1,138 @@
+# Blue Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudvibes-blue
+  labels:
+    app: cloudvibes
+    slot: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudvibes
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: cloudvibes
+        slot: blue
+    spec:
+      containers:
+      - name: cloudvibes
+        image: cloudvibes:blue
+        ports:
+        - containerPort: 3000
+        env:
+        - name: SLOT
+          value: "BLUE"
+        - name: VERSION
+          value: "v1.0.0"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# Green Deployment  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudvibes-green
+  labels:
+    app: cloudvibes
+    slot: green
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloudvibes
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: cloudvibes
+        slot: green
+    spec:
+      containers:
+      - name: cloudvibes
+        image: cloudvibes:green
+        ports:
+        - containerPort: 3000
+        env:
+        - name: SLOT
+          value: "GREEN"
+        - name: VERSION
+          value: "v2.0.0"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+
+---
+# Production Service (initially points to BLUE)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-production
+  labels:
+    app: cloudvibes
+    type: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: cloudvibes
+    slot: blue  # <-- This determines active slot
+
+---
+# Preview Service (points to inactive slot)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-preview
+  labels:
+    app: cloudvibes  
+    type: preview
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    targetPort: 3000
+  selector:
+    app: cloudvibes
+    slot: green  # <-- Preview the inactive slot
+
+---
+# Blue Direct Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-blue
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: cloudvibes
+    slot: blue
+
+---
+# Green Direct Service  
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-green
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: cloudvibes
+    slot: green

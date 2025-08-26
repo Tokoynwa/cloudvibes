@@ -16,7 +16,7 @@ data:
   ACTIVE_SLOT: {{ include "cloudvibes.activeSlot" . | quote }}
   
   # Health check configuration
-  HEALTH_CHECK_PATH: {{ .Values.blueGreen.healthCheck.path | default "/api/health" | quote }}
+  HEALTH_CHECK_PATH: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.path | default "/api/health" | quote }}{{ else }}{{ "/api/health" | quote }}{{ end }}
   
 ---
 apiVersion: v1

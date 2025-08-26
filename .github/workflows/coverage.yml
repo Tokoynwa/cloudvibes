@@ -1,0 +1,102 @@
+name: 📊 Coverage Report
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  coverage:
+    name: 📊 Generate Coverage Report
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 📋 Install dependencies
+      run: npm ci
+      
+    - name: 🧪 Run tests with coverage
+      run: npm run test:coverage
+      
+    - name: 📊 Upload to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: cloudvibes-coverage
+        fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        
+    - name: 📈 Coverage Report Summary
+      run: |
+        echo "## 📊 Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Extract coverage percentages from Jest output
+        if [ -f coverage/coverage-summary.json ]; then
+          node -e "
+            const coverage = require('./coverage/coverage-summary.json');
+            const total = coverage.total;
+            console.log('| Metric | Coverage |');
+            console.log('|--------|----------|');
+            console.log('| Lines | ' + total.lines.pct + '% |');
+            console.log('| Functions | ' + total.functions.pct + '% |');
+            console.log('| Branches | ' + total.branches.pct + '% |');
+            console.log('| Statements | ' + total.statements.pct + '% |');
+          " >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📁 [Full Coverage Report](https://codecov.io/gh/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+        
+    - name: 💬 PR Coverage Comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          if (fs.existsSync('coverage/coverage-summary.json')) {
+            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const total = coverage.total;
+            
+            const coverageComment = `
+          ## 📊 Test Coverage Report
+          
+          | Metric | Coverage | Change |
+          |--------|----------|---------|
+          | Lines | ${total.lines.pct}% | - |
+          | Functions | ${total.functions.pct}% | - |
+          | Branches | ${total.branches.pct}% | - |
+          | Statements | ${total.statements.pct}% | - |
+          
+          > Coverage report generated for commit ${context.sha.substring(0, 7)}
+          
+          ${total.lines.pct >= 80 ? '✅' : '⚠️'} **Overall coverage: ${total.lines.pct}%**
+          ${total.lines.pct >= 80 ? 'Great job!' : 'Consider adding more tests to improve coverage.'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: coverageComment
+            });
+          }
+          
+    - name: 📦 Upload Coverage Reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
+        retention-days: 30

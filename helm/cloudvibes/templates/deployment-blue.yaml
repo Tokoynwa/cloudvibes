@@ -47,21 +47,21 @@ spec:
               value: "blue"
           livenessProbe:
             httpGet:
-              path: {{ .Values.blueGreen.healthCheck.path | default "/api/health" }}
+              path: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.path | default "/api/health" }}{{ else }}"/api/health"{{ end }}
               port: http
-            initialDelaySeconds: {{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}
-            periodSeconds: {{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}
-            timeoutSeconds: {{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}
-            failureThreshold: {{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}{{ else }}30{{ end }}
+            periodSeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}{{ else }}10{{ end }}
+            timeoutSeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}{{ else }}5{{ end }}
+            failureThreshold: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}{{ else }}3{{ end }}
           readinessProbe:
             httpGet:
-              path: {{ .Values.blueGreen.healthCheck.path | default "/api/health" }}
+              path: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.path | default "/api/health" }}{{ else }}"/api/health"{{ end }}
               port: http
-            initialDelaySeconds: {{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}
-            periodSeconds: {{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}
-            timeoutSeconds: {{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}
-            successThreshold: {{ .Values.blueGreen.healthCheck.successThreshold | default 1 }}
-            failureThreshold: {{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}
+            initialDelaySeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.initialDelaySeconds | default 30 }}{{ else }}30{{ end }}
+            periodSeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.periodSeconds | default 10 }}{{ else }}10{{ end }}
+            timeoutSeconds: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.timeoutSeconds | default 5 }}{{ else }}5{{ end }}
+            successThreshold: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.successThreshold | default 1 }}{{ else }}1{{ end }}
+            failureThreshold: {{ if and .Values.blueGreen .Values.blueGreen.healthCheck }}{{ .Values.blueGreen.healthCheck.failureThreshold | default 3 }}{{ else }}3{{ end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

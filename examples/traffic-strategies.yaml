@@ -1,0 +1,160 @@
+# =================================================================
+# STRATEGY 1: CLASSIC BLUE-GREEN (All-or-Nothing)
+# =================================================================
+# Switch happens instantly: 0% → 100%
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-classic-bluegreen
+  annotations:
+    strategy: "classic-blue-green"
+spec:
+  selector:
+    app: cloudvibes
+    slot: blue  # Switch this to "green" for instant 100% traffic shift
+  ports:
+  - port: 80
+    targetPort: 3000
+
+---
+# =================================================================
+# STRATEGY 2: GRADUAL ROLLOUT WITH MULTIPLE SERVICES
+# =================================================================
+# Uses weighted services to gradually shift traffic
+
+# Main production service (90% traffic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-main
+  annotations:
+    strategy: "weighted-rollout"
+    traffic-weight: "90%"
+spec:
+  selector:
+    app: cloudvibes
+    slot: blue  # Initially all traffic to blue
+  ports:
+  - port: 80
+    targetPort: 3000
+
+---
+# Canary service (10% traffic)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudvibes-canary
+  annotations:
+    strategy: "canary-testing"
+    traffic-weight: "10%"
+spec:
+  selector:
+    app: cloudvibes
+    slot: green  # Canary traffic to green
+  ports:
+  - port: 80
+    targetPort: 3000
+
+---
+# Load balancer configuration for weighted routing
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traffic-weights-config
+data:
+  # Gradual rollout phases
+  phase1: |
+    blue: 90%
+    green: 10%
+  phase2: |
+    blue: 70%
+    green: 30%
+  phase3: |
+    blue: 50%
+    green: 50%
+  phase4: |
+    blue: 30%
+    green: 70%
+  phase5: |
+    blue: 10%
+    green: 90%
+  phase6: |
+    blue: 0%
+    green: 100%
+
+---
+# =================================================================
+# STRATEGY 3: ISTIO SERVICE MESH (Advanced Traffic Management)
+# =================================================================
+# Requires Istio for sophisticated traffic splitting
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cloudvibes-traffic-split
+spec:
+  http:
+  - match:
+    - headers:
+        # Canary testing for specific users
+        x-canary-user:
+          exact: "true"
+    route:
+    - destination:
+        host: cloudvibes-green
+      weight: 100
+  - route:
+    - destination:
+        host: cloudvibes-blue
+      weight: 90  # 90% to blue (stable)
+    - destination:
+        host: cloudvibes-green
+      weight: 10  # 10% to green (canary)
+
+---
+# =================================================================
+# STRATEGY 4: NGINX INGRESS WITH TRAFFIC SPLITTING
+# =================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloudvibes-weighted-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"  # 10% to canary
+spec:
+  rules:
+  - host: cloudvibes.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cloudvibes-green  # Canary version
+            port:
+              number: 80
+
+---
+# Main ingress (90% traffic)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloudvibes-main-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: cloudvibes.org
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cloudvibes-blue  # Main version
+            port:
+              number: 80
