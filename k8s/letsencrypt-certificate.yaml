@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cloudvibes-letsencrypt
+  namespace: default
+spec:
+  secretName: cloudvibes-letsencrypt-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+  - cloudvibes.org
+  - www.cloudvibes.org
