@@ -19,6 +19,8 @@ A modern, responsive weather application built with Next.js 15, TypeScript, and 
 - **Smart Caching** - Intelligent data caching with React Query
 - **Error Handling** - Robust error handling and fallback mechanisms
 - **Accessibility** - WCAG compliant design with proper ARIA labels
+- **CI/CD Pipeline** - Automated deployment with GitHub Actions and K3s
+- **SSL Security** - Let's Encrypt certificates with automatic renewal
 
 ### Planned Features (Coming Soon)
 - **Weather Maps** - Interactive radar and satellite maps
