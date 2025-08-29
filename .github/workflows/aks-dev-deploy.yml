@@ -59,9 +59,18 @@ jobs:
         
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
+    - name: Install kubelogin
+      run: |
+        # Install kubelogin for Azure AD authentication
+        curl -LO https://github.com/Azure/kubelogin/releases/download/v0.0.32/kubelogin-linux-amd64.zip
+        unzip kubelogin-linux-amd64.zip
+        sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+        chmod +x /usr/local/bin/kubelogin
+
     - name: Get AKS credentials
       run: |
         az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
+        kubelogin convert-kubeconfig -l spn
 
     - name: Deploy to AKS
       run: |
@@ -72,12 +81,20 @@ jobs:
         kubectl apply -f k8s/aks/dev/deployment.yaml
         kubectl apply -f k8s/aks/dev/certificate.yaml
         kubectl apply -f k8s/aks/dev/ingress.yaml
+      env:
+        AAD_SERVICE_PRINCIPAL_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AAD_SERVICE_PRINCIPAL_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         
+    - name: Update deployment image
+      run: |
         # Update deployment with new image
         kubectl set image deployment/cloudvibes-dev cloudvibes=$REGISTRY/$IMAGE_NAME:${{ env.IMAGE_TAG }} -n cloudvibes-dev
         
         # Wait for rollout
         kubectl rollout status deployment/cloudvibes-dev -n cloudvibes-dev --timeout=300s
+      env:
+        AAD_SERVICE_PRINCIPAL_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AAD_SERVICE_PRINCIPAL_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
     - name: Health check
       run: |
