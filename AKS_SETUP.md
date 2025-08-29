@@ -62,24 +62,46 @@ az role assignment create --assignee {client-id} --role AcrPush --scope $ACR_ID
 
 ## 🔑 GitHub Secrets Configuration
 
-Go to your GitHub repository → Settings → Secrets and variables → Actions, and add these secrets:
+### Step-by-Step Credential Setup:
 
-### Required Secrets:
-- **AZURE_CLIENT_ID**: `{client-id from service principal}`
-- **AZURE_CLIENT_SECRET**: `{client-secret from service principal}`
-- **AZURE_TENANT_ID**: `{tenant-id from service principal}`
-- **AZURE_SUBSCRIPTION_ID**: `{subscription-id from service principal}`
+1. **Login to Azure CLI**:
+   ```bash
+   az login
+   ```
 
-### How to get these values:
-When you create the service principal, it returns a JSON like this:
-```json
-{
-  "clientId": "your-client-id",
-  "clientSecret": "your-client-secret",
-  "subscriptionId": "your-subscription-id",
-  "tenantId": "your-tenant-id"
-}
-```
+2. **Get Your Subscription ID**:
+   ```bash
+   az account show --query id --output tsv
+   ```
+
+3. **Create Service Principal**:
+   ```bash
+   # Replace {subscription-id} with your actual subscription ID
+   az ad sp create-for-rbac --name "cloudvibes-github-actions" \
+     --role contributor \
+     --scopes /subscriptions/{subscription-id} \
+     --json-auth
+   ```
+
+4. **Copy the Complete JSON Output** (example):
+   ```json
+   {
+     "clientId": "12345678-1234-1234-1234-123456789012",
+     "clientSecret": "your-client-secret-here",
+     "subscriptionId": "87654321-4321-4321-4321-210987654321",
+     "tenantId": "11111111-1111-1111-1111-111111111111"
+   }
+   ```
+
+5. **Add to GitHub Secrets**:
+   - Go to your GitHub repo → **Settings** → **Secrets and variables** → **Actions**
+   - Click **New repository secret**
+   - Name: `AZURE_CREDENTIALS`
+   - Value: Paste the **entire JSON** from step 4
+   - Click **Add secret**
+
+### Required Secret:
+- **AZURE_CREDENTIALS**: The complete JSON output from the service principal creation
 
 ## 🌐 DNS Setup (Optional)
 
