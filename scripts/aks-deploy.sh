@@ -4,9 +4,9 @@ set -e
 
 ENVIRONMENT=${1:-dev}
 ACTION=${2:-deploy}
-RESOURCE_GROUP="cloudvibes-${ENVIRONMENT}-rg"
-AKS_CLUSTER="cloudvibes-${ENVIRONMENT}-aks"
-ACR_NAME="cloudvibes${ENVIRONMENT}"
+RESOURCE_GROUP="rg-cloudvibes-${ENVIRONMENT}"
+AKS_CLUSTER="aks-cloudvibes-${ENVIRONMENT}"
+ACR_NAME="acrcloudvibes${ENVIRONMENT}1817"
 NAMESPACE="cloudvibes-${ENVIRONMENT}"
 
 function usage() {

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: cloudvibes
-        image: cloudvibesdev.azurecr.io/cloudvibes:latest
+        image: acrcloudvibesdev1817.azurecr.io/cloudvibes:latest
         ports:
         - containerPort: 3000
           protocol: TCP

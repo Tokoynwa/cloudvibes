@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: cloudvibesdev.azurecr.io
+  REGISTRY: acrcloudvibesdev1817.azurecr.io
   IMAGE_NAME: cloudvibes
-  AKS_CLUSTER_NAME: cloudvibes-dev-aks
-  AKS_RESOURCE_GROUP: cloudvibes-dev-rg
+  AKS_CLUSTER_NAME: aks-cloudvibes-dev
+  AKS_RESOURCE_GROUP: rg-cloudvibes-dev
 
 jobs:
   build-and-deploy:
@@ -46,7 +46,7 @@ jobs:
     - name: Build and push Docker image
       run: |
         # Login to Azure Container Registry
-        az acr login --name cloudvibesdev
+        az acr login --name acrcloudvibesdev1817
         
         # Build image with timestamp tag
         IMAGE_TAG="dev-$(date +%Y%m%d-%H%M%S)"
