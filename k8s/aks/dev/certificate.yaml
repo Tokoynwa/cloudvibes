@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cloudvibes-dev-certificate
+  namespace: cloudvibes-dev
+spec:
+  secretName: cloudvibes-dev-tls
+  issuerRef:
+    name: letsencrypt-dev
+    kind: ClusterIssuer
+  dnsNames:
+  - dev.cloudvibes.org

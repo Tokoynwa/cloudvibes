@@ -1,0 +1,101 @@
+name: AKS Dev Deployment
+
+on:
+  push:
+    branches: [ dev ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: cloudvibesdev.azurecr.io
+  IMAGE_NAME: cloudvibes
+  AKS_CLUSTER_NAME: cloudvibes-dev-aks
+  AKS_RESOURCE_GROUP: cloudvibes-dev-rg
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm run test:ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build and push Docker image
+      run: |
+        # Login to Azure Container Registry
+        az acr login --name cloudvibesdev
+        
+        # Build image with timestamp tag
+        IMAGE_TAG="dev-$(date +%Y%m%d-%H%M%S)"
+        docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+        docker build -t $REGISTRY/$IMAGE_NAME:latest .
+        
+        # Push images
+        docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        docker push $REGISTRY/$IMAGE_NAME:latest
+        
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
+
+    - name: Deploy to AKS
+      run: |
+        # Apply manifests
+        kubectl apply -f k8s/aks/dev/namespace.yaml
+        kubectl apply -f k8s/aks/dev/cluster-issuer.yaml
+        kubectl apply -f k8s/aks/dev/configmap.yaml
+        kubectl apply -f k8s/aks/dev/deployment.yaml
+        kubectl apply -f k8s/aks/dev/certificate.yaml
+        kubectl apply -f k8s/aks/dev/ingress.yaml
+        
+        # Update deployment with new image
+        kubectl set image deployment/cloudvibes-dev cloudvibes=$REGISTRY/$IMAGE_NAME:${{ env.IMAGE_TAG }} -n cloudvibes-dev
+        
+        # Wait for rollout
+        kubectl rollout status deployment/cloudvibes-dev -n cloudvibes-dev --timeout=300s
+
+    - name: Health check
+      run: |
+        echo "Waiting for deployment to be ready..."
+        sleep 60
+        
+        # Check if the service is responding
+        kubectl get pods -n cloudvibes-dev
+        kubectl get svc -n cloudvibes-dev
+        kubectl get ingress -n cloudvibes-dev
+        
+        # Try to check health endpoint (may take time for DNS/ingress)
+        echo "Deployment completed. Check https://dev.cloudvibes.org for the application."
+
+    - name: Deployment summary
+      run: |
+        echo "## 🚀 AKS Dev Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: Development" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image Tag**: ${{ env.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Namespace**: cloudvibes-dev" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL**: https://dev.cloudvibes.org" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+        kubectl get pods -n cloudvibes-dev >> $GITHUB_STEP_SUMMARY
