@@ -306,4 +306,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Built with ❤️ for the weather enthusiasts around the world.
+Built with ❤️ for the weather enthusiasts around the world.# AKS deployment ready - Fri Aug 29 18:30:56 +04 2025
