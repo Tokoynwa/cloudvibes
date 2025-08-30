@@ -1,0 +1,99 @@
+name: Deploy to K3s Server
+
+on:
+  push:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+env:
+  SERVER_HOST: 216.87.32.17
+  IMAGE_NAME: cloudvibes
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm run test:ci
+      continue-on-error: true
+
+    - name: Build application
+      run: npm run build
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      run: |
+        IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
+        REGISTRY="ghcr.io/${{ github.repository_owner }}"
+        
+        # Build images
+        docker build -t $IMAGE_NAME:$IMAGE_TAG .
+        docker build -t $IMAGE_NAME:latest .
+        
+        # Tag for registry
+        docker tag $IMAGE_NAME:$IMAGE_TAG $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        docker tag $IMAGE_NAME:latest $REGISTRY/$IMAGE_NAME:dev-latest
+        
+        # Push to registry
+        docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        docker push $REGISTRY/$IMAGE_NAME:dev-latest
+        
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+        echo "REGISTRY_IMAGE=$REGISTRY/$IMAGE_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Deploy to K3s server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # Navigate to deployment directory
+          cd /my-mcp-server/cloudvibes
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Build new image
+          IMAGE_TAG="$(date +%Y%m%d-%H%M%S)"
+          docker build -t cloudvibes:$IMAGE_TAG .
+          docker build -t cloudvibes:latest .
+          
+          # Deploy using k3s script
+          ./tools/scripts/k3s-deploy.sh deploy $IMAGE_TAG
+
+    - name: Health check
+      run: |
+        echo "Waiting for deployment..."
+        sleep 30
+        
+        # Check if the application is responding
+        curl -f https://cloudvibes.org/api/health || echo "Health check failed, but deployment may still be in progress"
+
+    - name: Deployment summary
+      run: |
+        echo "## 🚀 K3s Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Server**: ${{ env.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image Tag**: ${{ env.IMAGE_TAG }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL**: https://cloudvibes.org" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY

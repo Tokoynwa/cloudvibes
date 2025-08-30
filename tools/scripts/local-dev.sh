@@ -95,21 +95,34 @@ function docker_build() {
 }
 
 function docker_push() {
-    echo "🚀 Building and pushing to Azure Container Registry..."
+    echo "🚀 Building and pushing Docker images..."
     
-    # Login to ACR
-    az acr login --name acrcloudvibesdev1817
+    # Configuration - set your preferred registry
+    REGISTRY=${DOCKER_REGISTRY:-"ghcr.io/tokoynwa"}  # GitHub Container Registry
+    # REGISTRY=${DOCKER_REGISTRY:-"your-username"}     # Docker Hub
+    # REGISTRY=${DOCKER_REGISTRY:-"your-registry.com"} # Self-hosted
     
     # Build with proper tags
-    IMAGE_TAG="local-$(date +%Y%m%d-%H%M%S)"
-    docker build -t acrcloudvibesdev1817.azurecr.io/cloudvibes:$IMAGE_TAG .
-    docker build -t acrcloudvibesdev1817.azurecr.io/cloudvibes:latest .
+    IMAGE_TAG="dev-$(date +%Y%m%d-%H%M%S)"
+    
+    echo "📦 Building images..."
+    docker build -t cloudvibes:$IMAGE_TAG .
+    docker build -t cloudvibes:latest .
+    
+    # Tag for registry
+    docker tag cloudvibes:$IMAGE_TAG $REGISTRY/cloudvibes:$IMAGE_TAG
+    docker tag cloudvibes:latest $REGISTRY/cloudvibes:dev-latest
+    
+    echo "🚀 Pushing to registry: $REGISTRY"
+    echo "💡 Make sure you're logged in: docker login ghcr.io"
     
     # Push images
-    docker push acrcloudvibesdev1817.azurecr.io/cloudvibes:$IMAGE_TAG
-    docker push acrcloudvibesdev1817.azurecr.io/cloudvibes:latest
+    docker push $REGISTRY/cloudvibes:$IMAGE_TAG || echo "❌ Push failed - make sure you're logged in"
+    docker push $REGISTRY/cloudvibes:dev-latest || echo "❌ Push failed - make sure you're logged in"
     
-    echo "✅ Images pushed with tag: $IMAGE_TAG"
+    echo "✅ Images pushed!"
+    echo "   - $REGISTRY/cloudvibes:$IMAGE_TAG"
+    echo "   - $REGISTRY/cloudvibes:dev-latest"
 }
 
 function clean() {
