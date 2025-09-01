@@ -10,14 +10,20 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+# Update npm to latest version to support lockfileVersion 3
+RUN npm install -g npm@latest && \
+    npm ci --only=production && \
+    npm cache clean --force
 
 # Stage 2: Build the application
 FROM base AS builder
 WORKDIR /app
 # Install all dependencies including dev dependencies for build
 COPY package.json package-lock.json* ./
-RUN npm ci && npm cache clean --force
+# Update npm to latest version to support lockfileVersion 3
+RUN npm install -g npm@latest && \
+    npm ci && \
+    npm cache clean --force
 COPY . .
 
 # Environment variables for build
