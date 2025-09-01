@@ -72,7 +72,7 @@ eslint.config.*
 
 # TypeScript
 *.tsbuildinfo
-tsconfig.json
+# tsconfig.json - NEEDED for path mappings in Docker build
 
 # Development scripts and tools
 tools/
@@ -115,7 +115,7 @@ pnpm-lock.yaml
 # IDE configurations
 lighthouserc.js
 jest.setup.js
-postcss.config.mjs
+# postcss.config.mjs - NEEDED for Tailwind CSS
 
 # Archive files
 *.zip
